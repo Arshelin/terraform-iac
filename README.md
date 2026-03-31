@@ -33,12 +33,32 @@ terraform-iac/
 ## Architecture
 
 ```
-shared/                  envs/argo/          envs/dev/         envs/prod/
-  Artifact Registry  ←── GKE nodes pull      GKE nodes pull    GKE nodes pull
-  Cloud Build            ArgoCD cluster  ──→  Dev cluster       Prod cluster
-  (GitHub → build →      (LoadBalancer IP)    WAF + SQL         WAF + SQL (HA)
-   push image)           Workload Identity
-                         (container.admin)
+                        ┌──────────────────────────────────────────────────┐
+                        │                  GCP Project                     │
+                        └──────────────────────────────────────────────────┘
+
+ shared/                    envs/argo/              envs/dev/           envs/prod/
+┌─────────────────┐    ┌──────────────────┐    ┌───────────────┐   ┌────────────────┐
+│ Artifact Registry│    │   GKE Cluster    │    │  GKE Cluster  │   │  GKE Cluster   │
+│  ├── webapp-dev  │◄───│                  │    │               │   │                │
+│  └── webapp-prod │    │  ArgoCD          │    │  Webapp pods  │   │  Webapp pods   │
+│                  │    │  ├── server      ├───►│  Cloud Armor  │   │  Cloud Armor   │
+│ Cloud Build      │    │  ├── app-ctrl    ├───►│  Cloud SQL    │   │  Cloud SQL (HA)│
+│  ├── dev trigger │    │  └── repo-server │    │  (ZONAL)      │   │  (REGIONAL)    │
+│  │  (main)       │    │                  │    │               │   │                │
+│  └── prod trigger│    │  Workload ID     │    │  Workload ID  │   │  Workload ID   │
+│     (release/*)  │    │  (container.admin│    │  (cloudsql,   │   │  (cloudsql,    │
+│                  │    │   storage.admin) │    │   secrets,    │   │   secrets,     │
+│ On-Demand Scan   │    │                  │    │   registry)   │   │   registry)    │
+│ Secret Manager   │    │  LoadBalancer IP │    │  Static LB IP │   │  Static LB IP  │
+│  (GitHub PAT)    │    │  (ArgoCD UI)     │    │  (Ingress)    │   │  (Ingress)     │
+└────────┬─────────┘    └────────┬─────────┘    └───────────────┘   └────────────────┘
+         │                       │
+         │  GitHub               │  GitOps (helm-charts repo)
+         │  ┌──────────┐        │
+         └──┤ spring-   │        │  ArgoCD monitors helm-charts
+            │ boot-api  ├────────┘  and syncs to dev/prod clusters
+            └──────────┘
 ```
 
 - **Shared layer** – deployed once; Artifact Registry + Cloud Build CI/CD
