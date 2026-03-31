@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: repo-{{ .Values.appset.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    argocd.argoproj.io/secret-type: repository
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+type: Opaque
+stringData:
+  type: git
+  url: {{ .Values.repository.url | quote }}

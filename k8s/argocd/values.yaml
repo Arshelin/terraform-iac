@@ -1,0 +1,29 @@
+# ArgoCD Helm values for GKE deployment
+# Chart: argo/argo-cd  version: 7.3.4
+#
+# Dynamic values (set by argocd-install.sh via --set):
+#   server.service.loadBalancerIP   – static regional IP from Terraform
+#   *.serviceAccount.annotations    – Workload Identity GCP SA email
+
+server:
+  extraArgs:
+    - --insecure
+
+  service:
+    type: LoadBalancer
+    annotations:
+      cloud.google.com/l4-rbs: "enabled"
+
+  serviceAccount:
+    annotations: {}
+
+  ingress:
+    enabled: false
+
+controller:
+  serviceAccount:
+    annotations: {}
+
+repoServer:
+  serviceAccount:
+    annotations: {}

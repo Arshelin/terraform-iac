@@ -1,0 +1,53 @@
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: {{ .Values.appset.name }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+spec:
+  goTemplate: true
+  generators:
+    - list:
+        elements:
+          {{- range $name, $cluster := .Values.clusters }}
+          - cluster: {{ $name }}
+            env: {{ $name }}
+            url: {{ $cluster.server | quote }}
+            imageUpdaterImage: {{ $cluster.imageUpdaterImage | default "" | quote }}
+            targetRevision: {{ $cluster.targetRevision | quote }}
+          {{- end }}
+
+  template:
+    metadata:
+      name: '{{ .Values.appset.name }}-{{`{{ .env }}`}}'
+      namespace: {{ $.Release.Namespace }}
+      annotations:
+        argocd-image-updater.argoproj.io/image-list: 'webapp={{`{{ .imageUpdaterImage }}`}}:latest'
+        argocd-image-updater.argoproj.io/webapp.update-strategy: digest
+        argocd-image-updater.argoproj.io/webapp.pull-secret: pullsecret:argocd/gcr-credentials
+    spec:
+      project: {{ .Values.appset.project }}
+
+      sources:
+        - repoURL: {{ .Values.appset.repoURL | quote }}
+          targetRevision: '{{`{{ .targetRevision }}`}}'
+          ref: values
+
+        - repoURL: {{ .Values.appset.repoURL | quote }}
+          targetRevision: '{{`{{ .targetRevision }}`}}'
+          path: {{ .Values.appset.chartPath }}
+          helm:
+            valueFiles:
+              - "$values/{{ .Values.appset.valuesPath }}/{{`{{ .env }}`}}.yaml"
+
+      destination:
+        server: '{{`{{ .url }}`}}'
+        namespace: {{ .Values.appset.namespace }}
+
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=true

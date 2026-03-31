@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: {{ .Values.appset.project }}
+  namespace: {{ $.Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+spec:
+  description: "{{ .Values.appset.name }} deployed to dev/prod clusters"
+
+  sourceRepos:
+    - {{ .Values.appset.repoURL | quote }}
+
+  destinations:
+    {{- range $name, $cluster := .Values.clusters }}
+    - namespace: {{ $.Values.appset.namespace }}
+      server: {{ $cluster.server | quote }}
+      name: {{ $name }}
+    {{- end }}
+
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
